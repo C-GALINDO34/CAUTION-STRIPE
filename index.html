@@ -1,14 +1,49 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="UTF-8">
-  <title>Dépôt de caution</title>
-</head>
+<head><meta charset="utf-8"><title>Dépôt de caution 500 €</title></head>
 <body>
-  <h2>Dépôt de caution par carte bancaire</h2>
-  <p>Merci de remplir les informations pour déposer votre caution :</p>
-  <form action="https://checkout.stripe.com/pay/" method="GET" https://dashboard.stripe.com/test/dashboard>"
-    <button type="submit">Déposer la caution</button>
+  <h2>Dépôt de caution – 500 € (empreinte bancaire)</h2>
+  <form id="payment-form">
+    <label>Nom complet :<br><input name="name" required></label><br>
+    <label>Email :<br><input type="email" name="email" required></label><br><br>
+    <div id="card-element"></div><br>
+    <button type="submit">Autoriser 500 €</button>
+    <div id="message"></div>
   </form>
+
+  <script src="https://js.stripe.com/v3/"></script>
+  <script>
+    const stripe = Stripe("TA_CLE_PUBLIQUE");
+    async function createSetupIntent(data) {
+      const res = await fetch("/api/create-setup-intent", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(data)
+      });
+      return res.json();
+    }
+    (async ()=>{
+      const form = document.getElementById("payment-form");
+      const elements = stripe.elements();
+      const card = elements.create("card", {captureMethod:"manual"});
+      card.mount("#card-element");
+
+      form.addEventListener("submit", async e => {
+        e.preventDefault();
+        const data = {
+          name: form.name.value,
+          email: form.email.value,
+          amount: 50000
+        };
+        const {clientSecret, error:setupError} = await createSetupIntent(data);
+        if (!clientSecret) return document.getElementById("message").textContent = setupError;
+
+        const {error} = await stripe.confirmCardSetup(clientSecret, {
+          payment_method: {card, billing_details:{name:data.name, email:data.email}}
+        });
+        document.getElementById("message").textContent = error ? error.message : "Empreinte autorisée ✔️";
+      });
+    })();
+  </script>
 </body>
 </html>
